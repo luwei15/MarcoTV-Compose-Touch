@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.OptIn
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -17,9 +18,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Wifi
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,8 +36,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            val viewModel: LauncherViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+            val viewModel: LauncherViewModel = viewModel()
             LaunchedEffect(Unit) {
                 viewModel.loadApps(this@MainActivity)
             }
@@ -95,7 +95,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+@OptIn(UnstableApi::class)
 @Composable
 fun VideoWallpaperBackground(videoUrl: String) {
     val context = LocalContext.current
@@ -179,7 +179,7 @@ fun TopBar(modifier: Modifier = Modifier) {
             Text("☷ 全部应用", color = Color.White.copy(alpha = 0.8f), fontSize = 16.sp)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Wifi, contentDescription = "WiFi", tint = Color.White, modifier = Modifier.size(24.dp))
+            Text("📶", color = Color.White, fontSize = 24.sp)
             Spacer(modifier = Modifier.width(16.dp))
             Text(text = timeText, color = Color.White, fontSize = 64.sp, fontWeight = FontWeight.Bold)
         }
