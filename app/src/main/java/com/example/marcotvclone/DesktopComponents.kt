@@ -5,7 +5,6 @@ import android.content.Intent
 import android.net.Uri
 import android.net.wifi.WifiManager
 import android.provider.Settings
-import android.view.HapticFeedbackConstants
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
@@ -13,12 +12,10 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -60,8 +57,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -91,7 +86,7 @@ fun ReusableLoopingVideoBackdrop(
     pauseOnStop: Boolean
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
+    val lifecycleOwner = context as? androidx.lifecycle.LifecycleOwner
     val player = remember {
         ExoPlayer.Builder(context).build().apply {
             repeatMode = Player.REPEAT_MODE_ALL
@@ -118,9 +113,9 @@ fun ReusableLoopingVideoBackdrop(
                 else -> Unit
             }
         }
-        lifecycleOwner.lifecycle.addObserver(observer)
+        lifecycleOwner?.lifecycle?.addObserver(observer)
         onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
+            lifecycleOwner?.lifecycle?.removeObserver(observer)
             player.release()
         }
     }
@@ -171,7 +166,7 @@ fun MarcoTopBar(
             dateText = SimpleDateFormat("M月d日 EEEE", Locale.CHINA).format(now)
             wifiLabel = try {
                 val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-                val ssid = wm?.connectionInfo?.ssid?.trim('"') ?: ""
+                val ssid = wm?.connectionInfo?.ssid?.replace("\"", "") ?: ""
                 if (ssid.isNotBlank() && ssid != "<unknown ssid>") ssid else "已连接"
             } catch (_: Exception) {
                 "WLAN"
@@ -454,7 +449,6 @@ fun QuickGhostChip(label: String, onClick: () -> Unit) {
     }
 }
 
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun MarcoHorizontalCard(
     app: AppEntry,
@@ -469,7 +463,6 @@ fun MarcoHorizontalCard(
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
-    val view = LocalView.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
