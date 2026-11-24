@@ -1,4 +1,4 @@
-name: Build Marco TV 0.21.3 NextGen
+name: Build Marco TV 0.21.3 BuildFix
 
 on:
   push:
@@ -17,8 +17,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.4'
-      - run: gradle assembleDebug --stacktrace
+      - name: Compile Kotlin & Assemble Debug APK
+        run: gradle compileDebugKotlin assembleDebug --console=plain --stacktrace
       - uses: actions/upload-artifact@v4
+        if: success()
         with:
-          name: MarcoTV-0.21.3-Touch-Fixed-APK
+          name: MarcoTV-0.21.3-Touch-BuildFix-APK
           path: app/build/outputs/apk/debug/*.apk
