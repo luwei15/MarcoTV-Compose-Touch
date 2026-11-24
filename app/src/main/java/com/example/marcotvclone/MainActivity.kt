@@ -6,6 +6,14 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -169,100 +177,114 @@ fun MarcoTouchRoot(vm: MarcoViewModel) {
                     onEnterScreensaver = { vm.navigateTo(ActiveScreen.SCREENSAVER) }
                 )
 
-                when (activeScreen) {
-                    ActiveScreen.DESKTOP -> {
-                        MarcoDesktopHome(
-                            apps = sortedVisibleApps,
-                            favoriteApps = favoriteApps,
-                            showFavoritesRow = showFavoritesRow,
-                            showBannerImages = showBannerImages,
-                            showQuickChips = showQuickChips,
-                            widePkgs = widePkgs,
-                            pinnedPkgs = pinnedPkgs,
-                            customNames = customNames,
-                            coverStyle = coverStyle,
-                            cardWidth = cardWidth.dp,
-                            cardHeight = cardHeight.dp,
-                            cardCorner = cardCorner.dp,
-                            cardSpacing = cardSpacing.dp,
-                            onLaunchApp = launchApp,
-                            onLongPressCard = { editingApp = it },
-                            onOpenAllApps = { vm.navigateTo(ActiveScreen.ALL_APPS) },
-                            onOpenWallpapers = { vm.navigateTo(ActiveScreen.WALLPAPERS) }
-                        )
+                AnimatedContent(
+                    targetState = activeScreen,
+                    transitionSpec = {
+                        (fadeIn(tween(240, easing = FastOutSlowInEasing)) +
+                            scaleIn(initialScale = 0.97f, animationSpec = tween(260, easing = FastOutSlowInEasing)))
+                            .togetherWith(
+                                fadeOut(tween(180)) +
+                                    scaleOut(targetScale = 0.985f, animationSpec = tween(180))
+                            )
+                    },
+                    label = "screenTransition",
+                    modifier = Modifier.weight(1f)
+                ) { screen ->
+                    when (screen) {
+                        ActiveScreen.DESKTOP -> {
+                            MarcoDesktopHome(
+                                apps = sortedVisibleApps,
+                                favoriteApps = favoriteApps,
+                                showFavoritesRow = showFavoritesRow,
+                                showBannerImages = showBannerImages,
+                                showQuickChips = showQuickChips,
+                                widePkgs = widePkgs,
+                                pinnedPkgs = pinnedPkgs,
+                                customNames = customNames,
+                                coverStyle = coverStyle,
+                                cardWidth = cardWidth.dp,
+                                cardHeight = cardHeight.dp,
+                                cardCorner = cardCorner.dp,
+                                cardSpacing = cardSpacing.dp,
+                                onLaunchApp = launchApp,
+                                onLongPressCard = { editingApp = it },
+                                onOpenAllApps = { vm.navigateTo(ActiveScreen.ALL_APPS) },
+                                onOpenWallpapers = { vm.navigateTo(ActiveScreen.WALLPAPERS) }
+                            )
+                        }
+                        ActiveScreen.ALL_APPS -> {
+                            AllAppsDrawerScreen(
+                                allApps = allApps,
+                                pinnedPkgs = pinnedPkgs,
+                                hiddenPkgs = hiddenPkgs,
+                                favoritePkgs = favoritePkgs,
+                                customNames = customNames,
+                                onLaunchApp = launchApp,
+                                onEditApp = { editingApp = it },
+                                onBack = { vm.navigateTo(ActiveScreen.DESKTOP) }
+                            )
+                        }
+                        ActiveScreen.MAGIC_DESKTOP -> {
+                            MagicDesktopStudioScreen(
+                                cardWidth = cardWidth,
+                                cardHeight = cardHeight,
+                                cardCorner = cardCorner,
+                                cardSpacing = cardSpacing,
+                                bottomMargin = bottomMargin,
+                                clockTilt = clockTilt,
+                                clockScale = clockScale,
+                                dimPct = dimPct,
+                                blurDp = blurDp,
+                                showFavorites = showFavoritesRow,
+                                showDate = showDate,
+                                showSecondsInSaver = showSecondsInSaver,
+                                showBannerImages = showBannerImages,
+                                showTopStatus = showTopStatus,
+                                showQuickChips = showQuickChips,
+                                pauseWallpaperOnStop = pauseWallpaperOnStop,
+                                coverStyle = coverStyle,
+                                sampleApp = sortedVisibleApps.firstOrNull(),
+                                onChangeCoverStyle = { vm.setCardCoverStyle(context, it) },
+                                onApplyTouchPreset = {
+                                    vm.applyTouchConsolePreset(context)
+                                    Toast.makeText(context, "已套用大屏触控精简预设", Toast.LENGTH_SHORT).show()
+                                },
+                                onUpdate = { w, h, c, sp, b, t, s, d, bl, fav, dt, sec, ban, st, chips, pauseFlag ->
+                                    vm.updateMagicAppearance(context, w, h, c, sp, b, t, s, d, bl, fav, dt, sec, ban, st, chips, pauseFlag)
+                                },
+                                onReset = { vm.resetMagicAppearance(context) },
+                                onBack = { vm.navigateTo(ActiveScreen.DESKTOP) }
+                            )
+                        }
+                        ActiveScreen.WALLPAPERS -> {
+                            WallpapersCenterScreen(
+                                currentUri = wallpaperUri,
+                                officialWallpapers = vm.officialWallpapers,
+                                mirrorStatus = mirrorStatus,
+                                parsedVideos = parsedVideos,
+                                shaVerifyResult = shaVerifyResult,
+                                onSyncMirror = { vm.syncWallpaperMirror() },
+                                onVerifyLocalUri = { vm.verifyLocalVideoSha256(context, it) },
+                                onSelectUri = { vm.applyWallpaper(context, it) },
+                                onBack = { vm.navigateTo(ActiveScreen.DESKTOP) }
+                            )
+                        }
+                        ActiveScreen.SETTINGS -> {
+                            DualPaneSettingsScreen(
+                                allApps = allApps,
+                                hiddenPkgs = hiddenPkgs,
+                                pinnedPkgs = pinnedPkgs,
+                                sortMode = sortMode,
+                                onSelectSortMode = { vm.setSortMode(context, it) },
+                                onToggleHide = { vm.toggleHidden(context, it) },
+                                onExportBackup = { vm.exportBackupJson(context) },
+                                onImportBackup = { vm.importBackupJson(context, it) },
+                                onOpenScreensaver = { vm.navigateTo(ActiveScreen.SCREENSAVER) },
+                                onBack = { vm.navigateTo(ActiveScreen.DESKTOP) }
+                            )
+                        }
+                        ActiveScreen.SCREENSAVER -> Unit
                     }
-                    ActiveScreen.ALL_APPS -> {
-                        AllAppsDrawerScreen(
-                            allApps = allApps,
-                            pinnedPkgs = pinnedPkgs,
-                            hiddenPkgs = hiddenPkgs,
-                            favoritePkgs = favoritePkgs,
-                            customNames = customNames,
-                            onLaunchApp = launchApp,
-                            onEditApp = { editingApp = it },
-                            onBack = { vm.navigateTo(ActiveScreen.DESKTOP) }
-                        )
-                    }
-                    ActiveScreen.MAGIC_DESKTOP -> {
-                        MagicDesktopStudioScreen(
-                            cardWidth = cardWidth,
-                            cardHeight = cardHeight,
-                            cardCorner = cardCorner,
-                            cardSpacing = cardSpacing,
-                            bottomMargin = bottomMargin,
-                            clockTilt = clockTilt,
-                            clockScale = clockScale,
-                            dimPct = dimPct,
-                            blurDp = blurDp,
-                            showFavorites = showFavoritesRow,
-                            showDate = showDate,
-                            showSecondsInSaver = showSecondsInSaver,
-                            showBannerImages = showBannerImages,
-                            showTopStatus = showTopStatus,
-                            showQuickChips = showQuickChips,
-                            pauseWallpaperOnStop = pauseWallpaperOnStop,
-                            coverStyle = coverStyle,
-                            sampleApp = sortedVisibleApps.firstOrNull(),
-                            onChangeCoverStyle = { vm.setCardCoverStyle(context, it) },
-                            onApplyTouchPreset = {
-                                vm.applyTouchConsolePreset(context)
-                                Toast.makeText(context, "已套用大屏触控精简预设", Toast.LENGTH_SHORT).show()
-                            },
-                            onUpdate = { w, h, c, sp, b, t, s, d, bl, fav, dt, sec, ban, st, chips, pauseFlag ->
-                                vm.updateMagicAppearance(context, w, h, c, sp, b, t, s, d, bl, fav, dt, sec, ban, st, chips, pauseFlag)
-                            },
-                            onReset = { vm.resetMagicAppearance(context) },
-                            onBack = { vm.navigateTo(ActiveScreen.DESKTOP) }
-                        )
-                    }
-                    ActiveScreen.WALLPAPERS -> {
-                        WallpapersCenterScreen(
-                            currentUri = wallpaperUri,
-                            officialWallpapers = vm.officialWallpapers,
-                            mirrorStatus = mirrorStatus,
-                            parsedVideos = parsedVideos,
-                            shaVerifyResult = shaVerifyResult,
-                            onSyncMirror = { vm.syncWallpaperMirror() },
-                            onVerifyLocalUri = { vm.verifyLocalVideoSha256(context, it) },
-                            onSelectUri = { vm.applyWallpaper(context, it) },
-                            onBack = { vm.navigateTo(ActiveScreen.DESKTOP) }
-                        )
-                    }
-                    ActiveScreen.SETTINGS -> {
-                        DualPaneSettingsScreen(
-                            allApps = allApps,
-                            hiddenPkgs = hiddenPkgs,
-                            pinnedPkgs = pinnedPkgs,
-                            sortMode = sortMode,
-                            onSelectSortMode = { vm.setSortMode(context, it) },
-                            onToggleHide = { vm.toggleHidden(context, it) },
-                            onExportBackup = { vm.exportBackupJson(context) },
-                            onImportBackup = { vm.importBackupJson(context, it) },
-                            onOpenScreensaver = { vm.navigateTo(ActiveScreen.SCREENSAVER) },
-                            onBack = { vm.navigateTo(ActiveScreen.DESKTOP) }
-                        )
-                    }
-                    ActiveScreen.SCREENSAVER -> Unit
                 }
             }
         }

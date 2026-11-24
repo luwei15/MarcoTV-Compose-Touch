@@ -57,7 +57,7 @@ class MarcoViewModel : ViewModel() {
     private val keyShowQuickChips = "show_quick_chips"
     private val keyPauseOnStop = "pause_wallpaper_on_stop"
 
-    val defaultDemoStream = "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4"
+    val defaultDemoStream = "https://marcotv.wlj9919.top/wallpapers/videos/pixar-squirrel-4k60.mp4"
 
     private val _allApps = MutableStateFlow<List<AppEntry>>(emptyList())
     val allApps: StateFlow<List<AppEntry>> = _allApps
@@ -154,6 +154,17 @@ class MarcoViewModel : ViewModel() {
 
     val officialWallpapers = listOf(
         OfficialWallpaperItem(
+            id = "squirrel",
+            title = "顽皮小松鼠",
+            spec = "3840×2160 · 60fps · 20s · 9.0 MB · HEVC",
+            desc = "Q版皮克斯 · 蓝调沙发探头微动态（已验证直链）",
+            sha256 = "913f791258e21e4ffb89f60c8cb9aaf58b519941e771c20a94d29b26894e7f61",
+            panUrl = "https://pan.quark.cn/s/b5f19457e16d",
+            previewColorStart = Color(0xFF102A43),
+            previewColorEnd = Color(0xFF243B53),
+            defaultStreamUrl = "https://marcotv.wlj9919.top/wallpapers/videos/pixar-squirrel-4k60.mp4"
+        ),
+        OfficialWallpaperItem(
             id = "penguin",
             title = "害羞小企鹅",
             spec = "3840×2160 · 60fps · 20s · 7.6 MB · HEVC",
@@ -162,18 +173,7 @@ class MarcoViewModel : ViewModel() {
             panUrl = "https://pan.quark.cn/s/f0311a0a6951",
             previewColorStart = Color(0xFF1A2A4A),
             previewColorEnd = Color(0xFF4A3525),
-            defaultStreamUrl = defaultDemoStream
-        ),
-        OfficialWallpaperItem(
-            id = "squirrel",
-            title = "顽皮小松鼠",
-            spec = "3840×2160 · 60fps · 20s · 9.0 MB · HEVC",
-            desc = "Q版皮克斯 · 蓝调沙发探头微动态",
-            sha256 = "913f791258e21e4ffb89f60c8cb9aaf58b519941e771c20a94d29b26894e7f61",
-            panUrl = "https://pan.quark.cn/s/b5f19457e16d",
-            previewColorStart = Color(0xFF102A43),
-            previewColorEnd = Color(0xFF243B53),
-            defaultStreamUrl = defaultDemoStream
+            defaultStreamUrl = "https://marcotv.wlj9919.top/wallpapers/videos/pixar-penguin-4k60.mp4"
         ),
         OfficialWallpaperItem(
             id = "puppy",
@@ -184,7 +184,7 @@ class MarcoViewModel : ViewModel() {
             panUrl = "https://pan.quark.cn/s/b8b083ae9048",
             previewColorStart = Color(0xFF3E2723),
             previewColorEnd = Color(0xFF5D4037),
-            defaultStreamUrl = defaultDemoStream
+            defaultStreamUrl = "https://marcotv.wlj9919.top/wallpapers/videos/pixar-puppy-4k60.mp4"
         ),
         OfficialWallpaperItem(
             id = "blackcat",
@@ -195,7 +195,7 @@ class MarcoViewModel : ViewModel() {
             panUrl = "https://pan.quark.cn/s/2b465cf96656",
             previewColorStart = Color(0xFF1B4332),
             previewColorEnd = Color(0xFF2D6A4F),
-            defaultStreamUrl = defaultDemoStream
+            defaultStreamUrl = "https://marcotv.wlj9919.top/wallpapers/videos/pixar-black-cat-4k60.mp4"
         ),
         OfficialWallpaperItem(
             id = "porkbelly",
@@ -206,7 +206,7 @@ class MarcoViewModel : ViewModel() {
             panUrl = "https://pan.quark.cn/s/b29e936a3089",
             previewColorStart = Color(0xFF3B1E2B),
             previewColorEnd = Color(0xFF5C2C3E),
-            defaultStreamUrl = defaultDemoStream
+            defaultStreamUrl = "https://marcotv.wlj9919.top/wallpapers/videos/pixar-tabby-cat-4k60.mp4"
         )
     )
 
@@ -424,25 +424,65 @@ class MarcoViewModel : ViewModel() {
 
     fun syncWallpaperMirror() {
         viewModelScope.launch {
-            _onlineMirrorStatus.value = "正在连接 marcotv.wlj9919.top/wallpapers/ ..."
+            _onlineMirrorStatus.value = "正在拉取 catalog.json 清单..."
+            val catalogCandidates = listOf(
+                "https://pilipala9919.github.io/MarcoTV/wallpapers/catalog.json",
+                "https://marcotv.wlj9919.top/wallpapers/catalog.json",
+                "https://marcotv.wlj9919.top/wallpapers/"
+            )
             try {
-                val result = withContext(Dispatchers.IO) {
-                    val conn = URL("https://marcotv.wlj9919.top/wallpapers/").openConnection() as HttpURLConnection
-                    conn.connectTimeout = 6000
-                    conn.readTimeout = 6000
-                    conn.requestMethod = "GET"
-                    val html = BufferedReader(InputStreamReader(conn.inputStream)).use { it.readText() }
-                    val regex = Regex("""https?://[^\s"'<>]+\.(mp4|webm|m3u8)""", RegexOption.IGNORE_CASE)
-                    regex.findAll(html).map { it.value }.distinct().toList()
+                val urls = withContext(Dispatchers.IO) {
+                    val collected = mutableListOf<String>()
+                    val mediaRegex = Regex("""https?://[^\s"'<>]+\.(mp4|webm|m3u8)""", RegexOption.IGNORE_CASE)
+                    for (endpoint in catalogCandidates) {
+                        try {
+                            val conn = URL(endpoint).openConnection() as HttpURLConnection
+                            conn.connectTimeout = 6000
+                            conn.readTimeout = 6000
+                            conn.requestMethod = "GET"
+                            val body = BufferedReader(InputStreamReader(conn.inputStream)).use { it.readText() }
+                            mediaRegex.findAll(body).forEach { collected.add(it.value) }
+                            if (endpoint.endsWith("catalog.json")) {
+                                fun scanJson(node: Any?) {
+                                    when (node) {
+                                        is JSONObject -> {
+                                            val keys = node.keys()
+                                            while (keys.hasNext()) {
+                                                val k = keys.next()
+                                                val v = node.opt(k)
+                                                if (v is String && (v.startsWith("http://") || v.startsWith("https://"))) {
+                                                    collected.add(v)
+                                                } else {
+                                                    scanJson(v)
+                                                }
+                                            }
+                                        }
+                                        is JSONArray -> {
+                                            for (i in 0 until node.length()) {
+                                                scanJson(node.opt(i))
+                                            }
+                                        }
+                                    }
+                                }
+                                try {
+                                    scanJson(JSONObject(body))
+                                } catch (_: Exception) {
+                                    try { scanJson(JSONArray(body)) } catch (_: Exception) {}
+                                }
+                            }
+                        } catch (_: Exception) {
+                        }
+                    }
+                    collected.distinct()
                 }
-                _parsedDirectVideos.value = result
-                _onlineMirrorStatus.value = if (result.isEmpty()) {
-                    "已同步壁纸库目录（5 款官方 4K 壁纸均通过网盘分发，下载后点击上方导入即可）"
+                _parsedDirectVideos.value = urls
+                _onlineMirrorStatus.value = if (urls.isEmpty()) {
+                    "已检查 catalog.json 清单（当前未检出公开直链，可填自定义直链或导入本地 MP4）"
                 } else {
-                    "解析到 ${result.size} 个在线视频直链，可直接点击应用"
+                    "从 catalog.json / 镜像解析到 ${urls.size} 条链接，点击下方即可播放"
                 }
             } catch (e: Exception) {
-                _onlineMirrorStatus.value = "镜像同步失败：${e.message ?: "网络不可用"}"
+                _onlineMirrorStatus.value = "清单同步失败：${e.message ?: "网络不可用"}"
             }
         }
     }

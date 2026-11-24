@@ -22,5 +22,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: MarcoTV-0213-Touch-Ready-APK
+          name: MarcoTV-0213-Touch-MotionStudio-APK
           path: app/build/outputs/apk/debug/*.apk

@@ -564,25 +564,26 @@ fun WallpapersCenterScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
                             onClick = {
+                                inputUrl = item.defaultStreamUrl
+                                onSelectUri(item.defaultStreamUrl)
+                                Toast.makeText(context, "已切换为 ${item.title} 4K 直链", Toast.LENGTH_SHORT).show()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF651FFF)),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Text("直链播放", fontSize = 12.sp)
+                        }
+                        OutlinedButton(
+                            onClick = {
                                 try {
                                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(item.panUrl)))
                                 } catch (_: Exception) {
                                     Toast.makeText(context, "无法打开浏览器下载", Toast.LENGTH_SHORT).show()
                                 }
                             },
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                        ) {
-                            Text("下载 4K 原片", fontSize = 12.sp)
-                        }
-                        OutlinedButton(
-                            onClick = {
-                                inputUrl = item.defaultStreamUrl
-                                onSelectUri(item.defaultStreamUrl)
-                                Toast.makeText(context, "已切回循环演示片源", Toast.LENGTH_SHORT).show()
-                            },
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                         ) {
-                            Text("演示流", color = Color.White, fontSize = 12.sp)
+                            Text("网盘原片", color = Color.White, fontSize = 12.sp)
                         }
                     }
                 }

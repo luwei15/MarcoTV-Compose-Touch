@@ -7,11 +7,15 @@ import android.net.wifi.WifiManager
 import android.provider.Settings
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -30,8 +34,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -43,18 +49,21 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
@@ -77,6 +86,7 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -166,7 +176,7 @@ fun MarcoTopBar(
             dateText = SimpleDateFormat("M月d日 EEEE", Locale.CHINA).format(now)
             wifiLabel = try {
                 val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-                val ssid = wm?.connectionInfo?.ssid?.replace("\"", "") ?: ""
+                val ssid = wm?.connectionInfo?.ssid?.replace(""", "") ?: ""
                 if (ssid.isNotBlank() && ssid != "<unknown ssid>") ssid else "已连接"
             } catch (_: Exception) {
                 "WLAN"
@@ -228,8 +238,18 @@ fun MarcoTopBar(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(14.dp))
-                        .background(Color.White.copy(alpha = 0.1f))
-                        .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(14.dp))
+                        .background(
+                            Brush.linearGradient(
+                                listOf(Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.06f))
+                            )
+                        )
+                        .border(
+                            width = 1.dp,
+                            brush = Brush.verticalGradient(
+                                listOf(Color.White.copy(alpha = 0.34f), Color.White.copy(alpha = 0.08f))
+                            ),
+                            shape = RoundedCornerShape(14.dp)
+                        )
                         .clickable {
                             try {
                                 context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
@@ -240,7 +260,7 @@ fun MarcoTopBar(
                 ) {
                     Text(
                         text = "📶 $wifiLabel",
-                        color = Color.White.copy(alpha = 0.88f),
+                        color = Color.White.copy(alpha = 0.9f),
                         fontSize = 13.sp
                     )
                 }
@@ -266,7 +286,7 @@ fun MarcoTopBar(
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = dateText,
-                        color = Color.White.copy(alpha = 0.82f),
+                        color = Color.White.copy(alpha = 0.84f),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -286,8 +306,11 @@ fun TopCapsuleButton(
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.94f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        targetValue = if (pressed) 0.93f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
         label = "navScale"
     )
 
@@ -297,18 +320,29 @@ fun TopCapsuleButton(
             .clip(RoundedCornerShape(16.dp))
             .background(
                 when {
-                    selected -> Color.White.copy(alpha = 0.26f)
-                    isBrand -> Color.White.copy(alpha = 0.14f)
-                    else -> Color.White.copy(alpha = 0.08f)
+                    selected -> Brush.linearGradient(
+                        listOf(Color.White.copy(alpha = 0.32f), Color.White.copy(alpha = 0.14f))
+                    )
+                    isBrand -> Brush.linearGradient(
+                        listOf(Color.White.copy(alpha = 0.18f), Color.White.copy(alpha = 0.07f))
+                    )
+                    else -> Brush.linearGradient(
+                        listOf(Color.White.copy(alpha = 0.10f), Color.White.copy(alpha = 0.04f))
+                    )
                 }
             )
             .border(
                 width = 1.dp,
-                color = if (selected) Color.White.copy(alpha = 0.55f) else Color.White.copy(alpha = 0.16f),
+                brush = Brush.verticalGradient(
+                    listOf(
+                        if (selected) Color.White.copy(alpha = 0.65f) else Color.White.copy(alpha = 0.28f),
+                        Color.White.copy(alpha = 0.06f)
+                    )
+                ),
                 shape = RoundedCornerShape(16.dp)
             )
             .clickable(interactionSource = interactionSource, indication = null) { onClick() }
-            .padding(horizontal = 14.dp, vertical = 9.dp)
+            .padding(horizontal = 15.dp, vertical = 9.dp)
     ) {
         Text(
             text = text,
@@ -339,6 +373,9 @@ fun MarcoDesktopHome(
     onOpenAllApps: () -> Unit,
     onOpenWallpapers: () -> Unit
 ) {
+    val favRowState = rememberLazyListState()
+    val mainRowState = rememberLazyListState()
+
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Bottom
@@ -352,12 +389,12 @@ fun MarcoDesktopHome(
                 verticalAlignment = Alignment.Bottom
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    QuickGhostChip(label = "4K 动态壁纸与校验", onClick = onOpenWallpapers)
+                    QuickGhostChip(label = "4K 动态壁纸与直链", onClick = onOpenWallpapers)
                     QuickGhostChip(label = "五列应用抽屉 (${apps.size})", onClick = onOpenAllApps)
                 }
                 Text(
-                    text = "点按启动 · 长按重命名/置顶/移动排序/切宽卡",
-                    color = Color.White.copy(alpha = 0.68f),
+                    text = "左右滑动浏览 · 点按启动应用",
+                    color = Color.White.copy(alpha = 0.72f),
                     fontSize = 12.sp
                 )
             }
@@ -365,87 +402,166 @@ fun MarcoDesktopHome(
 
         AnimatedVisibility(
             visible = showFavoritesRow && favoriteApps.isNotEmpty(),
-            enter = fadeIn(),
-            exit = fadeOut()
+            enter = fadeIn(tween(240, easing = FastOutSlowInEasing)) + slideInVertically(
+                initialOffsetY = { it / 4 },
+                animationSpec = tween(260, easing = FastOutSlowInEasing)
+            ),
+            exit = fadeOut(tween(180)) + slideOutVertically(
+                targetOffsetY = { it / 5 },
+                animationSpec = tween(180)
+            )
         ) {
-            Column(modifier = Modifier.padding(bottom = 16.dp)) {
+            Column(modifier = Modifier.padding(bottom = 18.dp)) {
                 Text(
                     text = "收藏",
-                    color = Color.White.copy(alpha = 0.92f),
+                    color = Color.White.copy(alpha = 0.94f),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(start = 4.dp, bottom = 10.dp)
                 )
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(cardSpacing),
-                    contentPadding = PaddingValues(horizontal = 4.dp)
-                ) {
-                    items(favoriteApps, key = { "fav_${it.packageName}" }) { app ->
-                        val isWide = widePkgs.contains(app.packageName)
-                        val label = customNames[app.packageName]?.takeIf { it.isNotBlank() } ?: app.defaultLabel
-                        MarcoHorizontalCard(
-                            app = app,
-                            displayLabel = label,
-                            width = if (isWide) cardWidth * 1.45f else cardWidth,
-                            height = cardHeight,
-                            cornerRadius = cardCorner,
-                            isPinned = pinnedPkgs.contains(app.packageName),
-                            isWide = isWide,
-                            showBanner = showBannerImages,
-                            coverStyle = coverStyle,
-                            onClick = { onLaunchApp(app) },
-                            onLongClick = { onLongPressCard(app) }
-                        )
-                    }
-                }
+                MotionCardRow(
+                    rowState = favRowState,
+                    apps = favoriteApps,
+                    keyPrefix = "fav",
+                    widePkgs = widePkgs,
+                    pinnedPkgs = pinnedPkgs,
+                    customNames = customNames,
+                    coverStyle = coverStyle,
+                    cardWidth = cardWidth,
+                    cardHeight = cardHeight,
+                    cardCorner = cardCorner,
+                    cardSpacing = cardSpacing,
+                    showBanner = showBannerImages,
+                    onLaunchApp = onLaunchApp
+                )
             }
         }
 
         Column {
             Text(
                 text = "我的应用",
-                color = Color.White.copy(alpha = 0.92f),
+                color = Color.White.copy(alpha = 0.94f),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(start = 4.dp, bottom = 10.dp)
             )
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(cardSpacing),
-                contentPadding = PaddingValues(horizontal = 4.dp)
-            ) {
-                items(apps, key = { it.packageName }) { app ->
-                    val isWide = widePkgs.contains(app.packageName)
-                    val label = customNames[app.packageName]?.takeIf { it.isNotBlank() } ?: app.defaultLabel
-                    MarcoHorizontalCard(
-                        app = app,
-                        displayLabel = label,
-                        width = if (isWide) cardWidth * 1.45f else cardWidth,
-                        height = cardHeight,
-                        cornerRadius = cardCorner,
-                        isPinned = pinnedPkgs.contains(app.packageName),
-                        isWide = isWide,
-                        showBanner = showBannerImages,
-                        coverStyle = coverStyle,
-                        onClick = { onLaunchApp(app) },
-                        onLongClick = { onLongPressCard(app) }
-                    )
-                }
-            }
+            MotionCardRow(
+                rowState = mainRowState,
+                apps = apps,
+                keyPrefix = "main",
+                widePkgs = widePkgs,
+                pinnedPkgs = pinnedPkgs,
+                customNames = customNames,
+                coverStyle = coverStyle,
+                cardWidth = cardWidth,
+                cardHeight = cardHeight,
+                cardCorner = cardCorner,
+                cardSpacing = cardSpacing,
+                showBanner = showBannerImages,
+                onLaunchApp = onLaunchApp
+            )
         }
     }
 }
 
 @Composable
+private fun MotionCardRow(
+    rowState: LazyListState,
+    apps: List<AppEntry>,
+    keyPrefix: String,
+    widePkgs: Set<String>,
+    pinnedPkgs: Set<String>,
+    customNames: Map<String, String>,
+    coverStyle: CardCoverStyle,
+    cardWidth: Dp,
+    cardHeight: Dp,
+    cardCorner: Dp,
+    cardSpacing: Dp,
+    showBanner: Boolean,
+    onLaunchApp: (AppEntry) -> Unit
+) {
+    val isScrolling by remember {
+        derivedStateOf { rowState.isScrollInProgress }
+    }
+    val velocityFactor by animateFloatAsState(
+        targetValue = if (isScrolling) 0.965f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "rowScrollScale"
+    )
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        LazyRow(
+            state = rowState,
+            horizontalArrangement = Arrangement.spacedBy(cardSpacing),
+            contentPadding = PaddingValues(start = 4.dp, end = 48.dp)
+        ) {
+            items(apps, key = { "${keyPrefix}_${it.packageName}" }) { app ->
+                val isWide = widePkgs.contains(app.packageName)
+                val label = customNames[app.packageName]?.takeIf { it.isNotBlank() } ?: app.defaultLabel
+                MarcoHorizontalCard(
+                    app = app,
+                    displayLabel = label,
+                    width = if (isWide) cardWidth * 1.46f else cardWidth,
+                    height = cardHeight,
+                    cornerRadius = cardCorner,
+                    isPinned = pinnedPkgs.contains(app.packageName),
+                    isWide = isWide,
+                    showBanner = showBanner,
+                    coverStyle = coverStyle,
+                    scrollScale = velocityFactor,
+                    onClick = { onLaunchApp(app) }
+                )
+            }
+        }
+
+        // 右侧柔和渐隐边缘，营造原版大屏横向轨道延伸感
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .width(56.dp)
+                .height(cardHeight + 28.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(Color.Transparent, Color(0xFF070A12).copy(alpha = 0.55f))
+                    )
+                )
+        )
+    }
+}
+
+@Composable
 fun QuickGhostChip(label: String, onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.94f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "chipScale"
+    )
+
     Box(
         modifier = Modifier
+            .scale(scale)
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.Black.copy(alpha = 0.35f))
-            .border(1.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(12.dp))
-            .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .background(
+                Brush.linearGradient(
+                    listOf(Color.White.copy(alpha = 0.14f), Color.Black.copy(alpha = 0.35f))
+                )
+            )
+            .border(
+                width = 1.dp,
+                brush = Brush.verticalGradient(
+                    listOf(Color.White.copy(alpha = 0.32f), Color.White.copy(alpha = 0.08f))
+                ),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .clickable(interactionSource = interactionSource, indication = null) { onClick() }
+            .padding(horizontal = 13.dp, vertical = 7.dp)
     ) {
-        Text(text = label, color = Color.White.copy(alpha = 0.9f), fontSize = 13.sp)
+        Text(text = label, color = Color.White.copy(alpha = 0.92f), fontSize = 13.sp)
     }
 }
 
@@ -460,42 +576,60 @@ fun MarcoHorizontalCard(
     isWide: Boolean,
     showBanner: Boolean,
     coverStyle: CardCoverStyle,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit
+    scrollScale: Float = 1f,
+    onClick: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.94f else 1f,
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.93f else 1f,
         animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
+            dampingRatio = Spring.DampingRatioLowBouncy,
             stiffness = Spring.StiffnessMediumLow
         ),
         label = "cardPress"
     )
+    val tiltY by animateFloatAsState(
+        targetValue = if (isPressed) -2.5f else 0f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "cardTilt"
+    )
 
     val cardBrush = when (coverStyle) {
         CardCoverStyle.DEFAULT_GRADIENT -> Brush.linearGradient(
-            listOf(app.accentColor.copy(alpha = 0.72f), Color(0xFF141926).copy(alpha = 0.85f))
+            listOf(app.accentColor.copy(alpha = 0.74f), Color(0xFF131826).copy(alpha = 0.88f))
         )
         CardCoverStyle.FROSTED_GLASS -> Brush.linearGradient(
-            listOf(Color.White.copy(alpha = 0.24f), Color.White.copy(alpha = 0.1f))
+            listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.08f))
         )
         CardCoverStyle.CYAN_VERMILION -> Brush.linearGradient(
-            listOf(Color(0xFF0284C7).copy(alpha = 0.76f), Color(0xFFDC2626).copy(alpha = 0.76f))
+            listOf(Color(0xFF0284C7).copy(alpha = 0.78f), Color(0xFFDC2626).copy(alpha = 0.78f))
         )
         CardCoverStyle.PURPLE_STACK -> Brush.linearGradient(
-            listOf(Color(0xFF7E57C2).copy(alpha = 0.85f), Color(0xFF311B92).copy(alpha = 0.88f))
+            listOf(Color(0xFF8B5CF6).copy(alpha = 0.85f), Color(0xFF311B92).copy(alpha = 0.90f))
         )
         CardCoverStyle.DEEP_OBSIDIAN -> Brush.linearGradient(
-            listOf(Color(0xFF181C26).copy(alpha = 0.9f), Color(0xFF0A0D14).copy(alpha = 0.92f))
+            listOf(Color(0xFF1A2030).copy(alpha = 0.92f), Color(0xFF090C12).copy(alpha = 0.95f))
         )
     }
+
+    val rimBrush = Brush.verticalGradient(
+        colors = listOf(
+            if (isPinned) Color(0xFFD8B4FE) else Color.White.copy(alpha = 0.42f),
+            Color.White.copy(alpha = 0.08f)
+        )
+    )
 
     Column(
         modifier = Modifier
             .width(width)
-            .scale(scale)
+            .graphicsLayer {
+                val combined = pressScale * scrollScale
+                scaleX = combined
+                scaleY = combined
+                rotationY = tiltY
+                cameraDistance = 12f * density
+            }
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -510,10 +644,22 @@ fun MarcoHorizontalCard(
                 .background(cardBrush)
                 .border(
                     width = if (isPinned) 1.5.dp else 1.dp,
-                    color = if (isPinned) Color(0xFFB388FF) else Color.White.copy(alpha = 0.28f),
+                    brush = rimBrush,
                     shape = RoundedCornerShape(cornerRadius)
                 )
         ) {
+            // 顶部高光反光带，提升玻璃与金属边缘质感
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(height * 0.42f)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color.White.copy(alpha = 0.14f), Color.Transparent)
+                        )
+                    )
+            )
+
             if (showBanner && app.bannerBitmap != null) {
                 Image(
                     bitmap = app.bannerBitmap,
@@ -547,8 +693,8 @@ fun MarcoHorizontalCard(
                         )
                         Spacer(modifier = Modifier.height(3.dp))
                         Text(
-                            text = if (isPinned) "已置顶 · 点击启动" else "点击启动应用",
-                            color = Color.White.copy(alpha = 0.74f),
+                            text = if (isPinned) "已置顶 · 点按启动" else "点按启动应用",
+                            color = Color.White.copy(alpha = 0.76f),
                             fontSize = 12.sp,
                             maxLines = 1
                         )
@@ -572,8 +718,8 @@ fun MarcoHorizontalCard(
                         .align(Alignment.TopEnd)
                         .padding(8.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF7C4DFF).copy(alpha = 0.88f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .background(Color(0xFF7C4DFF).copy(alpha = 0.9f))
+                        .padding(horizontal = 7.dp, vertical = 2.dp)
                 ) {
                     Text("置顶", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
@@ -583,7 +729,7 @@ fun MarcoHorizontalCard(
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = displayLabel,
-            color = Color.White.copy(alpha = 0.94f),
+            color = Color.White.copy(alpha = if (isPressed) 1f else 0.94f),
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
