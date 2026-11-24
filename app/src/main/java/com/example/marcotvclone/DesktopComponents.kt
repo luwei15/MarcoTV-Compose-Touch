@@ -171,7 +171,7 @@ fun MarcoTopBar(
             dateText = SimpleDateFormat("M月d日 EEEE", Locale.CHINA).format(now)
             wifiLabel = try {
                 val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-                val ssid = wm?.connectionInfo?.ssid?.replace(""", "") ?: ""
+                val ssid = wm?.connectionInfo?.ssid?.trim('"') ?: ""
                 if (ssid.isNotBlank() && ssid != "<unknown ssid>") ssid else "已连接"
             } catch (_: Exception) {
                 "WLAN"
