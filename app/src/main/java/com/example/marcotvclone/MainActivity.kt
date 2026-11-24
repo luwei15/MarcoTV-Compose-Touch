@@ -1,3 +1,4 @@
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 package com.example.marcotvclone
 
 import android.content.Context
@@ -42,7 +43,7 @@ import androidx.lifecycle.ViewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
-    import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,7 +51,6 @@ import kotlinx.coroutines.flow.StateFlow
 import java.text.SimpleDateFormat
 import java.util.*
 
-// --- 1. 应用数据与 ViewModel ---
 data class AppInfo(
     val label: String,
     val packageName: String,
@@ -71,7 +71,6 @@ class LauncherViewModel : ViewModel() {
         val appList = resolveInfos.mapNotNull { resolveInfo ->
             val packageName = resolveInfo.activityInfo.packageName
             val launchIntent = pm.getLaunchIntentForPackage(packageName)
-            // 过滤掉自己
             if (launchIntent != null && packageName != context.packageName) {
                 AppInfo(
                     label = resolveInfo.loadLabel(pm).toString(),
@@ -85,13 +84,11 @@ class LauncherViewModel : ViewModel() {
     }
 }
 
-// --- 2. 主 Activity ---
 class MainActivity : ComponentActivity() {
     private val viewModel: LauncherViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // 抓取本机 App
         viewModel.loadApps(this)
         setContent {
             MarcoTVCloneScreen(viewModel)
@@ -99,14 +96,13 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// --- 3. ExoPlayer 动态视频壁纸组件 ---
 @Composable
 fun VideoWallpaperBackground(videoUrl: String) {
     val context = LocalContext.current
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
-            repeatMode = Player.REPEAT_MODE_ALL // 无缝循环
-            volume = 0f // 强制静音，不打断车机音乐
+            repeatMode = Player.REPEAT_MODE_ALL
+            volume = 0f
             setMediaItem(MediaItem.fromUri(Uri.parse(videoUrl)))
             prepare()
             playWhenReady = true
@@ -121,8 +117,8 @@ fun VideoWallpaperBackground(videoUrl: String) {
         factory = { ctx ->
             PlayerView(ctx).apply {
                 player = exoPlayer
-                useController = false // 隐藏控制条
-                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM // 全屏裁剪填充
+                useController = false
+                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                 layoutParams = android.view.ViewGroup.LayoutParams(
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -133,17 +129,13 @@ fun VideoWallpaperBackground(videoUrl: String) {
     )
 }
 
-// --- 4. 界面骨架 ---
 @Composable
 fun MarcoTVCloneScreen(viewModel: LauncherViewModel) {
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        // 【底层】：动态视频壁纸。这里放一个测试用开源循环视频。
-        // 你可以随时把它换成 marcotv.wlj9919.top 里面提取出来的 mp4 链接。
         VideoWallpaperBackground(
             videoUrl = "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4"
         )
         
-        // 为了让 UI 文字看得清楚，加一层极薄的暗色遮罩
         Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.2f)))
 
         TopBar(modifier = Modifier.align(Alignment.TopCenter))
@@ -212,7 +204,6 @@ fun HeroSection(modifier: Modifier = Modifier) {
     }
 }
 
-// --- 5. 真实的 App 列表抓取渲染 ---
 @Composable
 fun AppListSection(viewModel: LauncherViewModel, modifier: Modifier = Modifier) {
     val apps by viewModel.installedApps.collectAsState()
@@ -230,7 +221,6 @@ fun AppListSection(viewModel: LauncherViewModel, modifier: Modifier = Modifier) 
             item {
                 AppCardPlaceholder("Marco Movie", width = 260.dp, bgColor = Color(0xFF222222))
             }
-            // 动态遍历手机里抓出来的所有真实 App
             items(apps, key = { it.packageName }) { app ->
                 AppCardReal(app = app) {
                     try {
@@ -250,6 +240,15 @@ fun AppCardReal(app: AppInfo, onClick: () -> Unit) {
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(targetValue = if (isPressed) 0.95f else 1f, label = "scale")
     
+    // 为了防止 Android 高版本 AdaptiveIconDrawable 生成位图崩溃，这里统一宽高转 Bitmap
+    val bitmap = remember(app.icon) {
+        try {
+            app.icon.toBitmap(width = 150, height = 150).asImageBitmap()
+        } catch (e: Exception) {
+            android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ARGB_8888).asImageBitmap()
+        }
+    }
+    
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -261,11 +260,11 @@ fun AppCardReal(app: AppInfo, onClick: () -> Unit) {
                 .width(110.dp)
                 .height(110.dp)
                 .clip(RoundedCornerShape(32.dp))
-                .background(Color.White.copy(alpha = 0.15f)), // 毛玻璃质感半透明底座
+                .background(Color.White.copy(alpha = 0.15f)),
             contentAlignment = Alignment.Center
         ) {
             Image(
-                bitmap = app.icon.toBitmap().asImageBitmap(),
+                bitmap = bitmap,
                 contentDescription = app.label,
                 modifier = Modifier.size(72.dp)
             )
