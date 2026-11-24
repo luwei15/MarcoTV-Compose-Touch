@@ -86,7 +86,6 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.math.abs
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -176,7 +175,7 @@ fun MarcoTopBar(
             dateText = SimpleDateFormat("M月d日 EEEE", Locale.CHINA).format(now)
             wifiLabel = try {
                 val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-                val ssid = wm?.connectionInfo?.ssid?.replace(""", "") ?: ""
+                val ssid = wm?.connectionInfo?.ssid?.replace("\"", "") ?: ""
                 if (ssid.isNotBlank() && ssid != "<unknown ssid>") ssid else "已连接"
             } catch (_: Exception) {
                 "WLAN"
@@ -369,7 +368,6 @@ fun MarcoDesktopHome(
     cardCorner: Dp,
     cardSpacing: Dp,
     onLaunchApp: (AppEntry) -> Unit,
-    onLongPressCard: (AppEntry) -> Unit,
     onOpenAllApps: () -> Unit,
     onOpenWallpapers: () -> Unit
 ) {
