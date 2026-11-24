@@ -3,10 +3,7 @@ package com.example.marcotvclone
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.net.wifi.WifiManager
-import android.graphics.RenderEffect
-import android.graphics.Shader
 import android.provider.Settings
 import android.view.HapticFeedbackConstants
 import androidx.annotation.OptIn
@@ -55,8 +52,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asComposeRenderEffect
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
@@ -129,15 +125,10 @@ fun ReusableLoopingVideoBackdrop(
         }
     }
 
-    val modifier = Modifier.fillMaxSize().graphicsLayer {
-        if (blurDp > 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val radiusPx = blurDp.dp.toPx().coerceAtLeast(1f)
-            renderEffect = RenderEffect.createBlurEffect(
-                radiusPx,
-                radiusPx,
-                Shader.TileMode.CLAMP
-            ).asComposeRenderEffect()
-        }
+    val modifier = if (blurDp > 0) {
+        Modifier.fillMaxSize().blur(blurDp.dp)
+    } else {
+        Modifier.fillMaxSize()
     }
 
     AndroidView(
@@ -463,7 +454,7 @@ fun QuickGhostChip(label: String, onClick: () -> Unit) {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun MarcoHorizontalCard(
     app: AppEntry,
@@ -512,14 +503,10 @@ fun MarcoHorizontalCard(
         modifier = Modifier
             .width(width)
             .scale(scale)
-            .combinedClickable(
+            .clickable(
                 interactionSource = interactionSource,
                 indication = null,
-                onClick = onClick,
-                onLongClick = {
-                    view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                    onLongClick()
-                }
+                onClick = onClick
             )
     ) {
         Box(

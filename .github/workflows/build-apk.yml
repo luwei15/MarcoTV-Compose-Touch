@@ -1,4 +1,4 @@
-name: Build Marco TV 0.21.3 BuildFix
+name: Build Marco TV 0.21.3 Ready
 
 on:
   push:
@@ -18,9 +18,9 @@ jobs:
         with:
           gradle-version: '8.4'
       - name: Compile Kotlin & Assemble Debug APK
-        run: gradle compileDebugKotlin assembleDebug --console=plain --stacktrace
+        run: gradle assembleDebug --console=plain --stacktrace
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: MarcoTV-0.21.3-Touch-BuildFix-APK
+          name: MarcoTV-0213-Touch-Ready-APK
           path: app/build/outputs/apk/debug/*.apk
