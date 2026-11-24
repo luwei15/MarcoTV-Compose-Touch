@@ -483,7 +483,8 @@ fun MarcoDesktopHome(
                 cardCorner = cardCorner,
                 cardSpacing = cardSpacing,
                 showBanner = showBannerImages,
-                onLaunchApp = onLaunchApp
+                onLaunchApp = onLaunchApp,
+                onLongPressCard = onLongPressCard
             )
         }
     }

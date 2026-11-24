@@ -22,5 +22,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: MarcoTV-0213-Touch-NextGenPro-APK
+          name: MarcoTV-0213-Touch-NextGenPro-Fixed-APK
           path: app/build/outputs/apk/debug/*.apk
