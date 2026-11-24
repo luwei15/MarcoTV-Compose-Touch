@@ -1,15 +1,22 @@
 package com.example.marcotvclone
 
+import android.content.Context
+import android.content.Intent
+import android.graphics.drawable.Drawable
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Wifi
@@ -21,30 +28,124 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.graphics.drawable.toBitmap
+import androidx.lifecycle.ViewModel
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+    import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import java.text.SimpleDateFormat
 import java.util.*
 
+// --- 1. 应用数据与 ViewModel ---
+data class AppInfo(
+    val label: String,
+    val packageName: String,
+    val icon: Drawable,
+    val launchIntent: Intent
+)
+
+class LauncherViewModel : ViewModel() {
+    private val _installedApps = MutableStateFlow<List<AppInfo>>(emptyList())
+    val installedApps: StateFlow<List<AppInfo>> = _installedApps
+
+    fun loadApps(context: Context) {
+        val pm = context.packageManager
+        val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+        }
+        val resolveInfos = pm.queryIntentActivities(mainIntent, 0)
+        val appList = resolveInfos.mapNotNull { resolveInfo ->
+            val packageName = resolveInfo.activityInfo.packageName
+            val launchIntent = pm.getLaunchIntentForPackage(packageName)
+            // 过滤掉自己
+            if (launchIntent != null && packageName != context.packageName) {
+                AppInfo(
+                    label = resolveInfo.loadLabel(pm).toString(),
+                    packageName = packageName,
+                    icon = resolveInfo.loadIcon(pm),
+                    launchIntent = launchIntent
+                )
+            } else null
+        }.sortedBy { it.label }
+        _installedApps.value = appList
+    }
+}
+
+// --- 2. 主 Activity ---
 class MainActivity : ComponentActivity() {
+    private val viewModel: LauncherViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 抓取本机 App
+        viewModel.loadApps(this)
         setContent {
-            MarcoTVCloneScreen()
+            MarcoTVCloneScreen(viewModel)
         }
     }
 }
 
+// --- 3. ExoPlayer 动态视频壁纸组件 ---
 @Composable
-fun MarcoTVCloneScreen() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF1E3C72)) 
-    ) {
+fun VideoWallpaperBackground(videoUrl: String) {
+    val context = LocalContext.current
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context).build().apply {
+            repeatMode = Player.REPEAT_MODE_ALL // 无缝循环
+            volume = 0f // 强制静音，不打断车机音乐
+            setMediaItem(MediaItem.fromUri(Uri.parse(videoUrl)))
+            prepare()
+            playWhenReady = true
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { exoPlayer.release() }
+    }
+
+    AndroidView(
+        factory = { ctx ->
+            PlayerView(ctx).apply {
+                player = exoPlayer
+                useController = false // 隐藏控制条
+                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM // 全屏裁剪填充
+                layoutParams = android.view.ViewGroup.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            }
+        },
+        modifier = Modifier.fillMaxSize()
+    )
+}
+
+// --- 4. 界面骨架 ---
+@Composable
+fun MarcoTVCloneScreen(viewModel: LauncherViewModel) {
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        // 【底层】：动态视频壁纸。这里放一个测试用开源循环视频。
+        // 你可以随时把它换成 marcotv.wlj9919.top 里面提取出来的 mp4 链接。
+        VideoWallpaperBackground(
+            videoUrl = "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4"
+        )
+        
+        // 为了让 UI 文字看得清楚，加一层极薄的暗色遮罩
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.2f)))
+
         TopBar(modifier = Modifier.align(Alignment.TopCenter))
         HeroSection(
             modifier = Modifier
@@ -52,6 +153,7 @@ fun MarcoTVCloneScreen() {
                 .padding(end = 80.dp)
         )
         AppListSection(
+            viewModel = viewModel,
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(start = 48.dp, bottom = 48.dp)
@@ -110,8 +212,12 @@ fun HeroSection(modifier: Modifier = Modifier) {
     }
 }
 
+// --- 5. 真实的 App 列表抓取渲染 ---
 @Composable
-fun AppListSection(modifier: Modifier = Modifier) {
+fun AppListSection(viewModel: LauncherViewModel, modifier: Modifier = Modifier) {
+    val apps by viewModel.installedApps.collectAsState()
+    val context = LocalContext.current
+
     Column(modifier = modifier) {
         Text(
             text = "☷ 我的应用",
@@ -122,18 +228,24 @@ fun AppListSection(modifier: Modifier = Modifier) {
         )
         LazyRow(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             item {
-                AppCard("Marco Movie", width = 260.dp, bgColor = Color(0xFF222222))
+                AppCardPlaceholder("Marco Movie", width = 260.dp, bgColor = Color(0xFF222222))
             }
-            items(5) { index ->
-                val colors = listOf(Color.White, Color(0xFFE3F2FD), Color(0xFFF3E5F5), Color(0xFFFFF3E0), Color(0xFFE8F5E9))
-                AppCard("应用 ${index + 1}", width = 160.dp, bgColor = colors[index % colors.size])
+            // 动态遍历手机里抓出来的所有真实 App
+            items(apps, key = { it.packageName }) { app ->
+                AppCardReal(app = app) {
+                    try {
+                        context.startActivity(app.launchIntent)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-fun AppCard(name: String, width: Dp, bgColor: Color) {
+fun AppCardReal(app: AppInfo, onClick: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(targetValue = if (isPressed) 0.95f else 1f, label = "scale")
@@ -142,8 +254,39 @@ fun AppCard(name: String, width: Dp, bgColor: Color) {
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .scale(scale)
-            .clickable(interactionSource = interactionSource, indication = null) { }
+            .clickable(interactionSource = interactionSource, indication = null) { onClick() }
     ) {
+        Box(
+            modifier = Modifier
+                .width(110.dp)
+                .height(110.dp)
+                .clip(RoundedCornerShape(32.dp))
+                .background(Color.White.copy(alpha = 0.15f)), // 毛玻璃质感半透明底座
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                bitmap = app.icon.toBitmap().asImageBitmap(),
+                contentDescription = app.label,
+                modifier = Modifier.size(72.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = app.label, 
+            color = Color.White, 
+            fontSize = 16.sp, 
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(110.dp)
+        )
+    }
+}
+
+@Composable
+fun AppCardPlaceholder(name: String, width: Dp, bgColor: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             modifier = Modifier
                 .width(width)
@@ -152,7 +295,7 @@ fun AppCard(name: String, width: Dp, bgColor: Color) {
                 .background(bgColor),
             contentAlignment = Alignment.Center
         ) {
-            Text(if (width > 200.dp) "🎬" else "📦", fontSize = 40.sp)
+            Text("🎬", fontSize = 40.sp)
         }
         Spacer(modifier = Modifier.height(12.dp))
         Text(text = name, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)

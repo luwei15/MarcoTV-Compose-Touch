@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <!-- 允许读取网络视频 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Android 11+ 必须声明才能获取所有已安装应用列表 -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="true" />
+    
     <application
         android:allowBackup="true"
         android:icon="@android:drawable/sym_def_app_icon"
@@ -16,7 +23,6 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-                <!-- 声明为系统默认桌面 -->
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
