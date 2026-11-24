@@ -207,7 +207,6 @@ fun MarcoTouchRoot(vm: MarcoViewModel) {
                                 cardCorner = cardCorner.dp,
                                 cardSpacing = cardSpacing.dp,
                                 onLaunchApp = launchApp,
-                                onLongPressCard = { editingApp = it },
                                 onOpenAllApps = { vm.navigateTo(ActiveScreen.ALL_APPS) },
                                 onOpenWallpapers = { vm.navigateTo(ActiveScreen.WALLPAPERS) }
                             )

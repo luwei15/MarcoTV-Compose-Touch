@@ -279,8 +279,7 @@ fun MagicDesktopStudioScreen(
                             isWide = true,
                             showBanner = showBannerImages,
                             coverStyle = coverStyle,
-                            onClick = {},
-                            onLongClick = {}
+                            onClick = {}
                         )
                     }
                 }
