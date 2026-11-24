@@ -21,8 +21,6 @@ android {
     }
     kotlinOptions {
         jvmTarget = "1.8"
-        // 核心修复：全局抑制 Media3 的 UnstableApi 编译报错
-        freeCompilerArgs += "-opt-in=androidx.media3.common.util.UnstableApi"
     }
     buildFeatures {
         compose = true

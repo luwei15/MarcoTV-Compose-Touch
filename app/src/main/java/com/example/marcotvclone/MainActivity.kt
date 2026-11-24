@@ -1,4 +1,3 @@
-@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 package com.example.marcotvclone
 
 import android.content.Context
@@ -8,7 +7,6 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.viewModels
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -85,17 +83,19 @@ class LauncherViewModel : ViewModel() {
 }
 
 class MainActivity : ComponentActivity() {
-    private val viewModel: LauncherViewModel by viewModels()
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        viewModel.loadApps(this)
         setContent {
+            val viewModel: LauncherViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+            LaunchedEffect(Unit) {
+                viewModel.loadApps(this@MainActivity)
+            }
             MarcoTVCloneScreen(viewModel)
         }
     }
 }
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun VideoWallpaperBackground(videoUrl: String) {
     val context = LocalContext.current
@@ -240,7 +240,6 @@ fun AppCardReal(app: AppInfo, onClick: () -> Unit) {
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(targetValue = if (isPressed) 0.95f else 1f, label = "scale")
     
-    // 为了防止 Android 高版本 AdaptiveIconDrawable 生成位图崩溃，这里统一宽高转 Bitmap
     val bitmap = remember(app.icon) {
         try {
             app.icon.toBitmap(width = 150, height = 150).asImageBitmap()
