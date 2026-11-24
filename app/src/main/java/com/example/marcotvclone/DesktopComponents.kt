@@ -2,6 +2,9 @@ package com.example.marcotvclone
 
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
+import android.view.HapticFeedbackConstants
 import android.net.Uri
 import android.net.wifi.WifiManager
 import android.provider.Settings
@@ -20,6 +23,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -56,7 +60,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
@@ -65,7 +68,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -167,18 +172,26 @@ fun MarcoTopBar(
     var timeText by remember { mutableStateOf("") }
     var dateText by remember { mutableStateOf("") }
     var wifiLabel by remember { mutableStateOf("WLAN") }
+    var batteryPct by remember { mutableStateOf(-1) }
 
     LaunchedEffect(Unit) {
         while (true) {
             val now = Date()
             timeText = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now)
-            dateText = SimpleDateFormat("M月d日 EEEE", Locale.CHINA).format(now)
+            dateText = SimpleDateFormat("M月d日 E", Locale.CHINA).format(now)
             wifiLabel = try {
                 val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
                 val ssid = wm?.connectionInfo?.ssid?.replace("\"", "") ?: ""
                 if (ssid.isNotBlank() && ssid != "<unknown ssid>") ssid else "已连接"
             } catch (_: Exception) {
                 "WLAN"
+            }
+            batteryPct = try {
+                val bm = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
+                val lvl = bm?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
+                if (lvl in 1..100) lvl else -1
+            } catch (_: Exception) {
+                -1
             }
             delay(2000)
         }
@@ -228,69 +241,73 @@ fun MarcoTopBar(
             }
         }
 
+        // 右侧玻璃状态胶囊：时钟、日期与 Wi-Fi 横向错落排布，增加柔和玻璃底托提升可读性
         val scaleFactor = clockScalePct / 100f
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier
+                .clip(RoundedCornerShape(20.dp))
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color.Black.copy(alpha = 0.24f), Color.Black.copy(alpha = 0.42f))
+                    )
+                )
+                .border(
+                    width = 1.dp,
+                    brush = Brush.verticalGradient(
+                        listOf(Color.White.copy(alpha = 0.28f), Color.White.copy(alpha = 0.06f))
+                    ),
+                    shape = RoundedCornerShape(20.dp)
+                )
+                .clickable { onEnterScreensaver() }
+                .padding(horizontal = 14.dp, vertical = 6.dp)
         ) {
             if (showTopStatus) {
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(
-                            Brush.linearGradient(
-                                listOf(Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.06f))
-                            )
-                        )
-                        .border(
-                            width = 1.dp,
-                            brush = Brush.verticalGradient(
-                                listOf(Color.White.copy(alpha = 0.34f), Color.White.copy(alpha = 0.08f))
-                            ),
-                            shape = RoundedCornerShape(14.dp)
-                        )
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.1f))
                         .clickable {
                             try {
                                 context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
                             } catch (_: Exception) {
                             }
                         }
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
                 ) {
+                    val batStr = if (batteryPct > 0) " · 🔋$batteryPct%" else ""
                     Text(
-                        text = "📶 $wifiLabel",
+                        text = "📶 $wifiLabel$batStr",
                         color = Color.White.copy(alpha = 0.9f),
-                        fontSize = 13.sp
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }
 
-            Column(
-                horizontalAlignment = Alignment.End,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .clickable { onEnterScreensaver() }
-                    .padding(horizontal = 10.dp, vertical = 4.dp)
-            ) {
+            if (showDate) {
                 Text(
-                    text = timeText,
-                    color = Color.White,
-                    fontSize = (54 * scaleFactor).sp,
-                    fontWeight = FontWeight.Bold,
-                    fontStyle = if (clockTiltDeg > 0) FontStyle.Italic else FontStyle.Normal,
-                    lineHeight = (56 * scaleFactor).sp,
-                    modifier = Modifier.rotate(-clockTiltDeg * 0.35f)
+                    text = dateText,
+                    color = Color.White.copy(alpha = 0.82f),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    softWrap = false
                 )
-                if (showDate) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = dateText,
-                        color = Color.White.copy(alpha = 0.84f),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
             }
+
+            Text(
+                text = timeText,
+                color = Color.White,
+                fontSize = (36 * scaleFactor).sp,
+                fontWeight = FontWeight.Bold,
+                fontStyle = if (clockTiltDeg > 0) FontStyle.Italic else FontStyle.Normal,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.rotate(-clockTiltDeg * 0.35f)
+            )
         }
     }
 }
@@ -347,7 +364,9 @@ fun TopCapsuleButton(
             text = text,
             color = Color.White,
             fontSize = 14.sp,
-            fontWeight = if (selected || isBrand) FontWeight.Bold else FontWeight.Medium
+            fontWeight = if (selected || isBrand) FontWeight.Bold else FontWeight.Medium,
+            maxLines = 1,
+            softWrap = false
         )
     }
 }
@@ -368,6 +387,7 @@ fun MarcoDesktopHome(
     cardCorner: Dp,
     cardSpacing: Dp,
     onLaunchApp: (AppEntry) -> Unit,
+    onLongPressCard: (AppEntry) -> Unit,
     onOpenAllApps: () -> Unit,
     onOpenWallpapers: () -> Unit
 ) {
@@ -382,7 +402,7 @@ fun MarcoDesktopHome(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 16.dp),
+                    .padding(bottom = 20.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Bottom
             ) {
@@ -391,9 +411,11 @@ fun MarcoDesktopHome(
                     QuickGhostChip(label = "五列应用抽屉 (${apps.size})", onClick = onOpenAllApps)
                 }
                 Text(
-                    text = "左右滑动浏览 · 点按启动应用",
+                    text = "左右滑动浏览 · 点按启动 · 长按卡片管理",
                     color = Color.White.copy(alpha = 0.72f),
-                    fontSize = 12.sp
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    softWrap = false
                 )
             }
         }
@@ -409,13 +431,15 @@ fun MarcoDesktopHome(
                 animationSpec = tween(180)
             )
         ) {
-            Column(modifier = Modifier.padding(bottom = 18.dp)) {
+            Column(modifier = Modifier.padding(bottom = 22.dp)) {
                 Text(
                     text = "收藏",
                     color = Color.White.copy(alpha = 0.94f),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(start = 4.dp, bottom = 10.dp)
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
                 )
                 MotionCardRow(
                     rowState = favRowState,
@@ -430,7 +454,8 @@ fun MarcoDesktopHome(
                     cardCorner = cardCorner,
                     cardSpacing = cardSpacing,
                     showBanner = showBannerImages,
-                    onLaunchApp = onLaunchApp
+                    onLaunchApp = onLaunchApp,
+                    onLongPressCard = onLongPressCard
                 )
             }
         }
@@ -441,7 +466,9 @@ fun MarcoDesktopHome(
                 color = Color.White.copy(alpha = 0.94f),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(start = 4.dp, bottom = 10.dp)
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
             )
             MotionCardRow(
                 rowState = mainRowState,
@@ -476,7 +503,8 @@ private fun MotionCardRow(
     cardCorner: Dp,
     cardSpacing: Dp,
     showBanner: Boolean,
-    onLaunchApp: (AppEntry) -> Unit
+    onLaunchApp: (AppEntry) -> Unit,
+    onLongPressCard: (AppEntry) -> Unit
 ) {
     val isScrolling by remember {
         derivedStateOf { rowState.isScrollInProgress }
@@ -502,7 +530,7 @@ private fun MotionCardRow(
                 MarcoHorizontalCard(
                     app = app,
                     displayLabel = label,
-                    width = if (isWide) cardWidth * 1.46f else cardWidth,
+                    width = if (isWide) cardWidth * 1.38f else cardWidth,
                     height = cardHeight,
                     cornerRadius = cardCorner,
                     isPinned = pinnedPkgs.contains(app.packageName),
@@ -510,12 +538,12 @@ private fun MotionCardRow(
                     showBanner = showBanner,
                     coverStyle = coverStyle,
                     scrollScale = velocityFactor,
-                    onClick = { onLaunchApp(app) }
+                    onClick = { onLaunchApp(app) },
+                    onLongPress = { onLongPressCard(app) }
                 )
             }
         }
 
-        // 右侧柔和渐隐边缘，营造原版大屏横向轨道延伸感
         Box(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
@@ -559,7 +587,13 @@ fun QuickGhostChip(label: String, onClick: () -> Unit) {
             .clickable(interactionSource = interactionSource, indication = null) { onClick() }
             .padding(horizontal = 13.dp, vertical = 7.dp)
     ) {
-        Text(text = label, color = Color.White.copy(alpha = 0.92f), fontSize = 13.sp)
+        Text(
+            text = label,
+            color = Color.White.copy(alpha = 0.92f),
+            fontSize = 13.sp,
+            maxLines = 1,
+            softWrap = false
+        )
     }
 }
 
@@ -575,10 +609,11 @@ fun MarcoHorizontalCard(
     showBanner: Boolean,
     coverStyle: CardCoverStyle,
     scrollScale: Float = 1f,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongPress: (() -> Unit)? = null
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
+    val view = LocalView.current
+    var isPressed by remember { mutableStateOf(false) }
     val pressScale by animateFloatAsState(
         targetValue = if (isPressed) 0.93f else 1f,
         animationSpec = spring(
@@ -595,13 +630,13 @@ fun MarcoHorizontalCard(
 
     val cardBrush = when (coverStyle) {
         CardCoverStyle.DEFAULT_GRADIENT -> Brush.linearGradient(
-            listOf(app.accentColor.copy(alpha = 0.74f), Color(0xFF131826).copy(alpha = 0.88f))
+            listOf(app.accentColor.copy(alpha = 0.72f), Color(0xFF131826).copy(alpha = 0.88f))
         )
         CardCoverStyle.FROSTED_GLASS -> Brush.linearGradient(
-            listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.08f))
+            listOf(Color.White.copy(alpha = 0.24f), Color.White.copy(alpha = 0.08f))
         )
         CardCoverStyle.CYAN_VERMILION -> Brush.linearGradient(
-            listOf(Color(0xFF0284C7).copy(alpha = 0.78f), Color(0xFFDC2626).copy(alpha = 0.78f))
+            listOf(Color(0xFF0284C7).copy(alpha = 0.76f), Color(0xFFDC2626).copy(alpha = 0.76f))
         )
         CardCoverStyle.PURPLE_STACK -> Brush.linearGradient(
             listOf(Color(0xFF8B5CF6).copy(alpha = 0.85f), Color(0xFF311B92).copy(alpha = 0.90f))
@@ -613,8 +648,8 @@ fun MarcoHorizontalCard(
 
     val rimBrush = Brush.verticalGradient(
         colors = listOf(
-            if (isPinned) Color(0xFFD8B4FE) else Color.White.copy(alpha = 0.42f),
-            Color.White.copy(alpha = 0.08f)
+            if (isPinned) Color(0xFFD8B4FE) else Color.White.copy(alpha = 0.36f),
+            Color.White.copy(alpha = 0.06f)
         )
     )
 
@@ -628,11 +663,25 @@ fun MarcoHorizontalCard(
                 rotationY = tiltY
                 cameraDistance = 12f * density
             }
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick
-            )
+            .pointerInput(app.packageName) {
+                detectTapGestures(
+                    onPress = {
+                        isPressed = true
+                        try {
+                            tryAwaitRelease()
+                        } finally {
+                            isPressed = false
+                        }
+                    },
+                    onTap = { onClick() },
+                    onLongPress = {
+                        if (onLongPress != null) {
+                            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                            onLongPress()
+                        }
+                    }
+                )
+            }
     ) {
         Box(
             modifier = Modifier
@@ -641,12 +690,11 @@ fun MarcoHorizontalCard(
                 .clip(RoundedCornerShape(cornerRadius))
                 .background(cardBrush)
                 .border(
-                    width = if (isPinned) 1.5.dp else 1.dp,
+                    width = 1.dp,
                     brush = rimBrush,
                     shape = RoundedCornerShape(cornerRadius)
                 )
         ) {
-            // 顶部高光反光带，提升玻璃与金属边缘质感
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -658,6 +706,7 @@ fun MarcoHorizontalCard(
                     )
             )
 
+            // 统一视觉语言：宽卡与标准卡都以干净图标/横幅为核心，不塞入零碎说明文字
             if (showBanner && app.bannerBitmap != null) {
                 Image(
                     bitmap = app.bannerBitmap,
@@ -665,47 +714,15 @@ fun MarcoHorizontalCard(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
-            } else if (isWide) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Image(
-                        bitmap = app.iconBitmap,
-                        contentDescription = displayLabel,
-                        modifier = Modifier
-                            .size(54.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                    )
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = displayLabel,
-                            color = Color.White,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Text(
-                            text = if (isPinned) "已置顶 · 点按启动" else "点按启动应用",
-                            color = Color.White.copy(alpha = 0.76f),
-                            fontSize = 12.sp,
-                            maxLines = 1
-                        )
-                    }
-                }
             } else {
+                val iconSize = if (isWide) 66.dp else 56.dp
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Image(
                         bitmap = app.iconBitmap,
                         contentDescription = displayLabel,
                         modifier = Modifier
-                            .size(56.dp)
-                            .clip(RoundedCornerShape(14.dp))
+                            .size(iconSize)
+                            .clip(RoundedCornerShape(16.dp))
                     )
                 }
             }
@@ -716,10 +733,17 @@ fun MarcoHorizontalCard(
                         .align(Alignment.TopEnd)
                         .padding(8.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF7C4DFF).copy(alpha = 0.9f))
+                        .background(Color(0xFF7C4DFF).copy(alpha = 0.88f))
                         .padding(horizontal = 7.dp, vertical = 2.dp)
                 ) {
-                    Text("置顶", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "置顶",
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
             }
         }
@@ -731,6 +755,7 @@ fun MarcoHorizontalCard(
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
+            softWrap = false,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
@@ -764,14 +789,14 @@ fun SingleCardManageDialog(
         titleContentColor = Color.White,
         textContentColor = Color.White,
         title = {
-            Text("卡片管理 · ${app.defaultLabel}", fontWeight = FontWeight.Bold)
+            Text("卡片管理 · ${app.defaultLabel}", fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
                     value = nameInput,
                     onValueChange = { nameInput = it },
-                    label = { Text("自定义显示名称（最多 32 字）") },
+                    label = { Text("自定义显示名称（最多 32 字）", maxLines = 1, softWrap = false) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
@@ -783,33 +808,33 @@ fun SingleCardManageDialog(
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = onTogglePin, modifier = Modifier.weight(1f)) {
-                        Text(if (isPinned) "取消置顶" else "置顶优先")
+                        Text(if (isPinned) "取消置顶" else "置顶优先", maxLines = 1, softWrap = false)
                     }
                     Button(onClick = onToggleFavorite, modifier = Modifier.weight(1f)) {
-                        Text(if (isFavorite) "移出收藏" else "加入收藏")
+                        Text(if (isFavorite) "移出收藏" else "加入收藏", maxLines = 1, softWrap = false)
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = onMoveLeft, modifier = Modifier.weight(1f)) {
-                        Text("← 左移一位", color = Color.White)
+                        Text("← 左移一位", color = Color.White, maxLines = 1, softWrap = false)
                     }
                     OutlinedButton(onClick = onMoveRight, modifier = Modifier.weight(1f)) {
-                        Text("右移一位 →", color = Color.White)
+                        Text("右移一位 →", color = Color.White, maxLines = 1, softWrap = false)
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = onToggleWide, modifier = Modifier.weight(1f)) {
-                        Text(if (isWide) "切为标准卡" else "切为 16:9 宽卡", color = Color.White)
+                        Text(if (isWide) "切为标准卡" else "切为 16:9 宽卡", color = Color.White, maxLines = 1, softWrap = false)
                     }
                     OutlinedButton(onClick = onToggleHide, modifier = Modifier.weight(1f)) {
-                        Text(if (isHidden) "取消隐藏" else "从桌面隐藏", color = Color(0xFFFF8A80))
+                        Text(if (isHidden) "取消隐藏" else "从桌面隐藏", color = Color(0xFFFF8A80), maxLines = 1, softWrap = false)
                     }
                 }
                 TextButton(onClick = {
                     onDismiss()
                     onUninstall()
                 }) {
-                    Text("卸载此应用（系统确认）", color = Color(0xFFFF5252))
+                    Text("卸载此应用（系统确认）", color = Color(0xFFFF5252), maxLines = 1, softWrap = false)
                 }
             }
         },
@@ -818,12 +843,12 @@ fun SingleCardManageDialog(
                 onRename(nameInput)
                 onDismiss()
             }) {
-                Text("保存并关闭")
+                Text("保存并关闭", maxLines = 1, softWrap = false)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("取消", color = Color.White.copy(alpha = 0.8f))
+                Text("取消", color = Color.White.copy(alpha = 0.8f), maxLines = 1, softWrap = false)
             }
         }
     )

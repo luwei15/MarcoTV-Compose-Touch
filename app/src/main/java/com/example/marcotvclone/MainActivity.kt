@@ -85,6 +85,7 @@ fun MarcoTouchRoot(vm: MarcoViewModel) {
     val mirrorStatus by vm.onlineMirrorStatus.collectAsState()
     val parsedVideos by vm.parsedDirectVideos.collectAsState()
     val shaVerifyResult by vm.shaVerifyResult.collectAsState()
+    val cacheProgressText by vm.cacheProgressText.collectAsState()
 
     var editingApp by remember { mutableStateOf<AppEntry?>(null) }
 
@@ -207,6 +208,7 @@ fun MarcoTouchRoot(vm: MarcoViewModel) {
                                 cardCorner = cardCorner.dp,
                                 cardSpacing = cardSpacing.dp,
                                 onLaunchApp = launchApp,
+                                onLongPressCard = { editingApp = it },
                                 onOpenAllApps = { vm.navigateTo(ActiveScreen.ALL_APPS) },
                                 onOpenWallpapers = { vm.navigateTo(ActiveScreen.WALLPAPERS) }
                             )
@@ -262,7 +264,9 @@ fun MarcoTouchRoot(vm: MarcoViewModel) {
                                 mirrorStatus = mirrorStatus,
                                 parsedVideos = parsedVideos,
                                 shaVerifyResult = shaVerifyResult,
+                                cacheProgressText = cacheProgressText,
                                 onSyncMirror = { vm.syncWallpaperMirror() },
+                                onCacheCurrentLocally = { vm.cacheCurrentWallpaperLocally(context) },
                                 onVerifyLocalUri = { vm.verifyLocalVideoSha256(context, it) },
                                 onSelectUri = { vm.applyWallpaper(context, it) },
                                 onBack = { vm.navigateTo(ActiveScreen.DESKTOP) }

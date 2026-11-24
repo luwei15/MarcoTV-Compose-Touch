@@ -22,6 +22,8 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
+import java.io.File
+import java.io.FileOutputStream
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
@@ -151,6 +153,9 @@ class MarcoViewModel : ViewModel() {
 
     private val _shaVerifyResult = MutableStateFlow("")
     val shaVerifyResult: StateFlow<String> = _shaVerifyResult
+
+    private val _cacheProgressText = MutableStateFlow("")
+    val cacheProgressText: StateFlow<String> = _cacheProgressText
 
     val officialWallpapers = listOf(
         OfficialWallpaperItem(
@@ -419,6 +424,54 @@ class MarcoViewModel : ViewModel() {
             context.getSharedPreferences(prefsName, Context.MODE_PRIVATE).edit()
                 .putString(keyWallpaperUri, clean)
                 .apply()
+        }
+    }
+
+    fun cacheCurrentWallpaperLocally(context: Context) {
+        val current = _wallpaperUri.value.trim()
+        if (!current.startsWith("http://") && !current.startsWith("https://")) {
+            _cacheProgressText.value = "当前壁纸已是本地文件，无需重复下载"
+            return
+        }
+        viewModelScope.launch {
+            _cacheProgressText.value = "正在高速缓存当前 4K 视频壁纸到本地私有目录..."
+            val result = withContext(Dispatchers.IO) {
+                try {
+                    val dir = File(context.filesDir, "cached_wallpapers")
+                    if (!dir.exists()) dir.mkdirs()
+                    val safeName = current.substringAfterLast('/').substringBefore('?').ifBlank { "wallpaper_4k.mp4" }
+                    val outFile = File(dir, safeName)
+                    val conn = URL(current).openConnection() as HttpURLConnection
+                    conn.connectTimeout = 10000
+                    conn.readTimeout = 25000
+                    conn.requestMethod = "GET"
+                    conn.inputStream.use { input ->
+                        FileOutputStream(outFile).use { output ->
+                            val buf = ByteArray(16384)
+                            var read: Int
+                            while (input.read(buf).also { read = it } != -1) {
+                                output.write(buf, 0, read)
+                            }
+                        }
+                    }
+                    val localUri = Uri.fromFile(outFile).toString()
+                    Pair(true, localUri)
+                } catch (e: Exception) {
+                    Pair(false, e.message ?: "下载失败")
+                }
+            }
+            if (result.first) {
+                applyWallpaper(context, result.second)
+                val sizeMb = try {
+                    val f = File(Uri.parse(result.second).path ?: "")
+                    String.format(Locale.US, "%.1f MB", f.length() / (1024f * 1024f))
+                } catch (_: Exception) {
+                    "完成"
+                }
+                _cacheProgressText.value = "离线缓存完成（$sizeMb），已自动切换为本地秒开片源！"
+            } else {
+                _cacheProgressText.value = "离线缓存失败：${result.second}"
+            }
         }
     }
 

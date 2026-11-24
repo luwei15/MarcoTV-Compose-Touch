@@ -134,8 +134,8 @@ fun AllAppsDrawerScreen(
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(5),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
             modifier = Modifier.fillMaxSize()
         ) {
             items(filtered, key = { it.packageName }) { app ->
@@ -170,6 +170,7 @@ fun AllAppsDrawerScreen(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
+                        softWrap = false,
                         overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(4.dp))
@@ -182,7 +183,9 @@ fun AllAppsDrawerScreen(
                         Text(
                             text = tagText,
                             color = if (isHidden) Color(0xFFFF8A80) else Color(0xFFB388FF),
-                            fontSize = 12.sp
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }
@@ -479,7 +482,9 @@ fun WallpapersCenterScreen(
     mirrorStatus: String,
     parsedVideos: List<String>,
     shaVerifyResult: String,
+    cacheProgressText: String,
     onSyncMirror: () -> Unit,
+    onCacheCurrentLocally: () -> Unit,
     onVerifyLocalUri: (Uri) -> Unit,
     onSelectUri: (String) -> Unit,
     onBack: () -> Unit
@@ -525,14 +530,15 @@ fun WallpapersCenterScreen(
                 Text(mirrorStatus, color = Color(0xFFE1BEE7), fontSize = 13.sp)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(onClick = onSyncMirror) { Text("同步壁纸库", color = Color.White) }
+                OutlinedButton(onClick = onCacheCurrentLocally) { Text("离线缓存当前直链", color = Color.White, maxLines = 1, softWrap = false) }
+                OutlinedButton(onClick = onSyncMirror) { Text("同步清单", color = Color.White, maxLines = 1, softWrap = false) }
                 Button(
                     onClick = { localVideoPicker.launch(arrayOf("video/*")) },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF651FFF))
                 ) {
-                    Text("导入本地 MP4 并校验")
+                    Text("导入本地 MP4", maxLines = 1, softWrap = false)
                 }
-                OutlinedButton(onClick = onBack) { Text("返回桌面", color = Color.White) }
+                OutlinedButton(onClick = onBack) { Text("返回桌面", color = Color.White, maxLines = 1, softWrap = false) }
             }
         }
 
@@ -600,6 +606,19 @@ fun WallpapersCenterScreen(
                         Text(url.substringAfterLast('/'), fontSize = 12.sp)
                     }
                 }
+            }
+        }
+
+        if (cacheProgressText.isNotBlank()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color(0xFF651FFF).copy(alpha = 0.22f))
+                    .padding(12.dp)
+            ) {
+                Text(cacheProgressText, color = Color(0xFFE1BEE7), fontSize = 13.sp)
             }
         }
 
